@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#f2eee5">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>ピクニッキング・セッション</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+Antique:wght@400;500&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main class="app">
+  <div class="stage" id="stage">
+    <header class="head" id="head">
+      <span>ピクニッキング</span>
+      <span>セッション</span>
+      <span>11.22 取手</span>
+    </header>
+    <button class="orb" type="button" data-i="0" data-state="empty"><span class="n">1</span><span class="t"></span></button>
+    <button class="orb" type="button" data-i="1" data-state="empty"><span class="n">2</span><span class="t"></span></button>
+    <button class="orb" type="button" data-i="2" data-state="empty"><span class="n">3</span><span class="t"></span></button>
+    <button class="orb" type="button" data-i="3" data-state="empty"><span class="n">4</span><span class="t"></span></button>
+    <button class="orb" type="button" data-i="4" data-state="empty"><span class="n">5</span><span class="t"></span></button>
+  </div>
+  <p class="msg" id="msg" role="status" aria-live="polite"></p>
+  <section class="ctl" aria-label="音の加工">
+    <div class="row"><label for="pitch">高さ</label><input id="pitch" type="range" min="-12" max="12" step="1" value="0"></div>
+    <div class="row"><label for="tone">音色</label><input id="tone" type="range" min="-100" max="100" step="1" value="0"></div>
+    <div class="row"><label for="space">響き</label><input id="space" type="range" min="0" max="100" step="1" value="0"></div>
+  </section>
+</main>
+<script src="app.js"></script>
+</body>
+</html>
