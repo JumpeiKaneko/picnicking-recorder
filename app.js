@@ -79,7 +79,6 @@
     // <audio>要素を経由させると、スイッチに関係なく鳴る。
     let routed = false;
     try {
-      if (navigator.audioSession) navigator.audioSession.type = 'playback';
       if (ctx.createMediaStreamDestination) {
         const dest = ctx.createMediaStreamDestination();
         outEl = new Audio();
@@ -97,6 +96,11 @@
     } catch (e) { routed = false; }
     if (!routed) an.connect(ctx.destination);
     applyFx();
+  }
+
+  // iPhoneの音の使い方を切り替える：録音中は録音向き、鳴らすときは再生向き
+  function setSession(type) {
+    try { if (navigator.audioSession) navigator.audioSession.type = type; } catch (e) { /* 非対応 */ }
   }
 
   function ensureCtx() {
@@ -160,6 +164,7 @@
   }
 
   async function play(i) {
+    setSession('playback');
     ensureCtx();
     if (ctx.state !== 'running') { try { await ctx.resume(); } catch (e) { /* なし */ } }
     let buf = null;
@@ -243,13 +248,16 @@
     }
     ensureCtx();
     stopAll();
+    if (outEl) outEl.pause();
+    setSession('play-and-record');
     let stream;
     try {
       stream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 1 },
       });
     } catch (e) {
-      say('マイクを使えません。ブラウザの許可を確認してください');
+      setSession('playback');
+      say(`マイクを使えません（${(e && e.name) || 'エラー'}）。ブラウザの許可を確認してください`);
       return;
     }
     const type = pickType();
@@ -296,6 +304,7 @@
     buffers[i] = null;
     paint(i);
     // マイクを離したあとに、再生側の出力を戻しておく
+    setSession('playback');
     ensureCtx();
     try {
       await dbPut(i, row);
