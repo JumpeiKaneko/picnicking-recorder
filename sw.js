@@ -1,4 +1,4 @@
-const CACHE = 'picnicking-recorder-v1';
+const CACHE = 'picnicking-recorder-v2';
 const FILES = ['./', 'index.html', 'style.css', 'app.js'];
 
 self.addEventListener('install', (e) => {

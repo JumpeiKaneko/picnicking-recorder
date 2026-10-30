@@ -4,7 +4,7 @@
   --mute: #7d8294;
   --line: #9aa0b3;
   --rec: #a5442f;
-  --sav: #2e4a8c;
+  --sav: #5a74b0;
   --play: #1f3573;
   --on: #f2eee5;
   --font: "Zen Kaku Gothic Antique", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", system-ui, sans-serif;
@@ -13,6 +13,7 @@
 *, *::before, *::after { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { height: 100%; margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font); overscroll-behavior: none; }
 body { -webkit-font-smoothing: antialiased; touch-action: manipulation; }
+button { font: inherit; color: inherit; }
 
 .app {
   height: 100dvh;
@@ -34,36 +35,54 @@ body { -webkit-font-smoothing: antialiased; touch-action: manipulation; }
 }
 
 .orb {
-  position: absolute; margin: 0; padding: 0;
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
-  font: inherit; color: var(--ink);
-  background: transparent; border: 1.5px solid var(--line);
+  position: absolute; overflow: hidden;
+  border: 1.5px solid var(--line);
+  background: transparent;
+  color: var(--ink);
   transition: background-color 0.6s ease, border-color 0.6s ease, color 0.6s ease;
-  transform: scale(calc(1 + var(--lv, 0) * 0.07));
-  cursor: pointer;
+  transform: scale(calc(1 + var(--lv, 0) * 0.09));
 }
-.orb:active { filter: brightness(0.96); }
-.orb:focus-visible { outline: 1.5px solid var(--ink); outline-offset: 4px; }
-
 .orb[data-i="0"] { left: 4%;  top: 2%;  width: 52%; height: 29%; border-radius: 52% 48% 55% 45% / 62% 56% 44% 38%; }
 .orb[data-i="1"] { left: 66%; top: 23%; width: 30%; height: 24%; border-radius: 46% 54% 50% 50% / 58% 42% 58% 42%; }
 .orb[data-i="2"] { left: 22%; top: 40%; width: 40%; height: 23%; border-radius: 54% 46% 48% 52% / 46% 54% 46% 54%; }
 .orb[data-i="3"] { left: 4%;  top: 66%; width: 44%; height: 32%; border-radius: 50% 50% 46% 54% / 54% 52% 48% 46%; }
 .orb[data-i="4"] { left: 60%; top: 68%; width: 30%; height: 22%; border-radius: 48% 52% 54% 46% / 52% 48% 52% 48%; }
 
+.orb .main {
+  position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; padding: 0 0 10% 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  background: transparent; border: 0; border-radius: inherit; cursor: pointer;
+}
+.orb .main:focus-visible { outline: 1.5px solid var(--ink); outline-offset: -6px; }
 .orb .n { font-size: 13px; letter-spacing: 0.2em; }
-.orb .t { font-size: 11px; letter-spacing: 0.1em; font-variant-numeric: tabular-nums; min-height: 1em; opacity: 0.85; }
+.orb .t { font-size: 11px; letter-spacing: 0.1em; font-variant-numeric: tabular-nums; min-height: 1em; opacity: 0.9; }
 
+.orb .redo {
+  position: absolute; left: 50%; bottom: 9%; transform: translateX(-50%);
+  min-width: 68px; height: 28px; padding: 0 12px;
+  font-size: 11px; letter-spacing: 0.12em; white-space: nowrap;
+  background: transparent; color: var(--on); border: 1px solid rgba(242, 238, 229, 0.7); border-radius: 14px; cursor: pointer;
+}
+.orb .redo[hidden] { display: none; }
+.orb .redo:active { background: rgba(242, 238, 229, 0.18); }
+.orb .redo:focus-visible { outline: 1.5px solid var(--on); outline-offset: 2px; }
+
+/* 録音中 */
 .orb[data-state="rec"] { background: var(--rec); border-color: var(--rec); color: var(--on); animation: breathe 2.6s ease-in-out infinite; }
+
+/* 録音済み（演奏モード）。再生中は濃い色が下から満ちていく */
 .orb[data-state="saved"] { background: var(--sav); border-color: var(--sav); color: var(--on); }
-.orb[data-state="saved"].is-play { background: var(--play); border-color: var(--play); }
+.orb[data-state="saved"].is-play {
+  border-color: var(--play);
+  background: linear-gradient(to top, var(--play) calc(var(--p, 0) * 100%), var(--sav) calc(var(--p, 0) * 100%));
+}
 
 @keyframes breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.025); } }
 
 /* ---------- メッセージ ---------- */
 .msg { margin: 6px 0 0; min-height: 1.6em; font-size: 12px; letter-spacing: 0.08em; text-align: center; color: var(--rec); }
 
-/* ---------- フィルター ---------- */
+/* ---------- 残響 ---------- */
 .ctl { padding-top: 4px; }
 .row { display: grid; grid-template-columns: 3.4em 1fr; align-items: center; gap: 14px; height: 46px; }
 .row label { font-size: 12px; letter-spacing: 0.18em; color: var(--mute); }

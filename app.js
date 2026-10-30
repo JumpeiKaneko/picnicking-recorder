@@ -8,21 +8,20 @@
   const FX_KEY = 'picnicking-fx';
 
   const orbs = [...document.querySelectorAll('.orb')];
+  const mains = orbs.map((o) => o.querySelector('.main'));
+  const redos = orbs.map((o) => o.querySelector('.redo'));
   const msg = document.getElementById('msg');
   const head = document.getElementById('head');
-  const sliders = {
-    pitch: document.getElementById('pitch'),
-    tone: document.getElementById('tone'),
-    space: document.getElementById('space'),
-  };
+  const space = document.getElementById('space');
 
   const takes = new Array(N).fill(null);    // { buf: ArrayBuffer, type, dur, at }
   const buffers = new Array(N).fill(null);  // デコード済み AudioBuffer
-  const playing = new Array(N).fill(null);  // { src }
+  const playing = new Array(N).fill(null);  // 再生中の情報
   let rec = null;                           // 録音中の状態
   let busy = false;
   let ctx = null;
   let chain = null;
+  let outEl = null;                         // 出力用の <audio>（iPhoneの消音スイッチ対策）
 
   const say = (t) => { msg.textContent = t || ''; };
   const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
@@ -48,9 +47,10 @@
   };
   const dbGet = (i) => tx('readonly', (s) => s.get(i));
   const dbPut = (i, v) => tx('readwrite', (s) => s.put(v, i));
+  const dbDel = (i) => tx('readwrite', (s) => s.delete(i));
   const dbClear = () => tx('readwrite', (s) => s.clear());
 
-  /* ---------- 音の加工 ---------- */
+  /* ---------- 音の経路と残響 ---------- */
   function makeIR() {
     const sr = ctx.sampleRate;
     const len = Math.floor(sr * 2.4);
@@ -63,19 +63,39 @@
   }
 
   function buildChain() {
-    const hp = ctx.createBiquadFilter(); hp.type = 'highpass';
-    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass';
+    const input = ctx.createGain();
     const dry = ctx.createGain();
     const wet = ctx.createGain();
     const conv = ctx.createConvolver(); conv.buffer = makeIR();
     const master = ctx.createGain();
     const an = ctx.createAnalyser(); an.fftSize = 256;
-    hp.connect(lp);
-    lp.connect(dry); lp.connect(conv);
+    input.connect(dry); input.connect(conv);
     conv.connect(wet);
     dry.connect(master); wet.connect(master);
-    master.connect(an); an.connect(ctx.destination);
-    chain = { input: hp, hp, lp, dry, wet, an, td: new Uint8Array(an.fftSize) };
+    master.connect(an);
+    chain = { input, dry, wet, an, td: new Uint8Array(an.fftSize) };
+
+    // iPhoneは、消音スイッチがオンだとWebオーディオが無音になる。
+    // <audio>要素を経由させると、スイッチに関係なく鳴る。
+    let routed = false;
+    try {
+      if (navigator.audioSession) navigator.audioSession.type = 'playback';
+      if (ctx.createMediaStreamDestination) {
+        const dest = ctx.createMediaStreamDestination();
+        outEl = new Audio();
+        outEl.srcObject = dest.stream;
+        outEl.playsInline = true;
+        an.connect(dest);
+        routed = true;
+        outEl.play().catch(() => {
+          // 再生できなければ通常の出力に切り替える
+          try { an.disconnect(dest); } catch (e) { /* なし */ }
+          an.connect(ctx.destination);
+          outEl = null;
+        });
+      }
+    } catch (e) { routed = false; }
+    if (!routed) an.connect(ctx.destination);
     applyFx();
   }
 
@@ -85,32 +105,24 @@
       ctx = new AC();
       buildChain();
     }
-    if (ctx.state === 'suspended') ctx.resume();
+    // suspended のほか、iPhoneでマイク使用後に入る interrupted でも再開する
+    if (ctx.state !== 'running') { try { ctx.resume(); } catch (e) { /* なし */ } }
+    if (outEl && outEl.paused) outEl.play().catch(() => {});
     return ctx;
   }
 
-  const rate = () => Math.pow(2, Number(sliders.pitch.value) / 12);
-
   function applyFx() {
     if (!chain) return;
-    const t = Number(sliders.tone.value) / 100;
-    const s = Number(sliders.space.value) / 100;
+    const s = Number(space.value) / 100;
     const now = ctx.currentTime;
-    chain.lp.frequency.setTargetAtTime(t < 0 ? 20000 * Math.pow(0.012, -t) : 20000, now, 0.03);
-    chain.hp.frequency.setTargetAtTime(t > 0 ? 20 * Math.pow(150, t) : 20, now, 0.03);
     chain.dry.gain.setTargetAtTime(1 - 0.5 * s, now, 0.03);
     chain.wet.gain.setTargetAtTime(1.4 * s, now, 0.03);
-    playing.forEach((p) => { if (p) p.src.playbackRate.value = rate(); });
   }
 
-  Object.values(sliders).forEach((el) => el.addEventListener('input', () => {
+  space.addEventListener('input', () => {
     applyFx();
-    try {
-      localStorage.setItem(FX_KEY, JSON.stringify({
-        pitch: sliders.pitch.value, tone: sliders.tone.value, space: sliders.space.value,
-      }));
-    } catch (e) { /* 保存できなくても動く */ }
-  }));
+    try { localStorage.setItem(FX_KEY, space.value); } catch (e) { /* 保存できなくても動く */ }
+  });
 
   /* ---------- 再生 ---------- */
   async function getBuffer(i) {
@@ -126,19 +138,40 @@
     return b;
   }
 
+  // デコードできない端末では、<audio>で直接鳴らす（残響は効かない）
+  function playPlain(i) {
+    const t = takes[i];
+    const url = URL.createObjectURL(new Blob([t.buf], { type: t.type || 'audio/mp4' }));
+    const el = new Audio(url);
+    el.playsInline = true;
+    const p = { kind: 'el', el, url, dur: t.dur };
+    const done = () => {
+      if (playing[i] !== p) return;
+      playing[i] = null;
+      URL.revokeObjectURL(url);
+      paint(i);
+    };
+    el.onended = done;
+    el.onerror = () => { say('この音を再生できませんでした'); done(); };
+    playing[i] = p;
+    paint(i);
+    startMeter();
+    el.play().catch(() => { say('この音を再生できませんでした'); done(); });
+  }
+
   async function play(i) {
     ensureCtx();
-    let buf;
-    try { buf = await getBuffer(i); } catch (e) { say('この音を再生できませんでした'); return; }
-    if (!buf || playing[i]) return;
+    if (ctx.state !== 'running') { try { await ctx.resume(); } catch (e) { /* なし */ } }
+    let buf = null;
+    try { buf = await getBuffer(i); } catch (e) { buf = null; }
+    if (playing[i]) return;
+    if (!buf) { playPlain(i); return; }
     const src = ctx.createBufferSource();
     src.buffer = buf;
-    src.playbackRate.value = rate();
     src.connect(chain.input);
-    src.onended = () => {
-      if (playing[i] && playing[i].src === src) { playing[i] = null; paint(i); }
-    };
-    playing[i] = { src };
+    const p = { kind: 'buf', src, t0: ctx.currentTime, dur: buf.duration };
+    src.onended = () => { if (playing[i] === p) { playing[i] = null; paint(i); } };
+    playing[i] = p;
     src.start();
     paint(i);
     startMeter();
@@ -148,22 +181,41 @@
     const p = playing[i];
     if (!p) return;
     playing[i] = null;
-    try { p.src.stop(); } catch (e) { /* すでに終了 */ }
+    if (p.kind === 'buf') {
+      try { p.src.stop(); } catch (e) { /* すでに終了 */ }
+    } else {
+      p.el.pause();
+      URL.revokeObjectURL(p.url);
+    }
     paint(i);
   }
 
   const stopAll = () => { for (let i = 0; i < N; i++) stop(i); };
 
+  // 再生中の円：音量に合わせた拡縮、濃い色の満ち方、残り時間
   let raf = 0;
   function meter() {
     raf = 0;
-    if (!chain) return;
-    chain.an.getByteTimeDomainData(chain.td);
-    let sum = 0;
-    for (const v of chain.td) { const x = (v - 128) / 128; sum += x * x; }
-    const lv = Math.min(1, Math.sqrt(sum / chain.td.length) * 3);
-    orbs.forEach((o, i) => o.style.setProperty('--lv', playing[i] ? lv.toFixed(3) : '0'));
-    if (playing.some(Boolean)) raf = requestAnimationFrame(meter);
+    let lv = 0;
+    if (chain) {
+      chain.an.getByteTimeDomainData(chain.td);
+      let sum = 0;
+      for (const v of chain.td) { const x = (v - 128) / 128; sum += x * x; }
+      lv = Math.min(1, Math.sqrt(sum / chain.td.length) * 3);
+    }
+    let any = false;
+    orbs.forEach((o, i) => {
+      const p = playing[i];
+      if (!p) { o.style.setProperty('--lv', '0'); return; }
+      any = true;
+      const el = p.kind === 'buf' ? ctx.currentTime - p.t0 : p.el.currentTime;
+      const dur = p.kind === 'buf' ? p.dur : (p.el.duration && isFinite(p.el.duration) ? p.el.duration : p.dur);
+      const frac = Math.max(0, Math.min(1, el / dur));
+      o.style.setProperty('--p', frac.toFixed(3));
+      o.style.setProperty('--lv', lv.toFixed(3));
+      o.querySelector('.t').textContent = `再生 ${fmt(Math.max(0, dur - el))}`;
+    });
+    if (any) raf = requestAnimationFrame(meter);
   }
   const startMeter = () => { if (!raf) raf = requestAnimationFrame(meter); };
 
@@ -243,11 +295,24 @@
     takes[i] = row;
     buffers[i] = null;
     paint(i);
+    // マイクを離したあとに、再生側の出力を戻しておく
+    ensureCtx();
     try {
       await dbPut(i, row);
     } catch (e) {
       say('保存できませんでした。リロードすると消えます');
     }
+  }
+
+  /* ---------- 取り直す ---------- */
+  async function redo(i) {
+    if (busy || rec) return;
+    if (!window.confirm(`円${i + 1}の録音を消して、取り直しますか？`)) return;
+    stop(i);
+    takes[i] = null;
+    buffers[i] = null;
+    try { await dbDel(i); } catch (e) { /* なし */ }
+    paint(i);
   }
 
   /* ---------- 表示 ---------- */
@@ -257,10 +322,12 @@
     const st = rec && rec.i === i ? 'rec' : takes[i] ? 'saved' : 'empty';
     o.dataset.state = st;
     o.classList.toggle('is-play', !!playing[i]);
+    if (!playing[i]) { o.style.setProperty('--p', '0'); o.style.setProperty('--lv', '0'); }
     const t = o.querySelector('.t');
-    if (st === 'saved') t.textContent = fmt(takes[i].dur);
+    if (st === 'saved' && !playing[i]) t.textContent = fmt(takes[i].dur);
     else if (st === 'empty') t.textContent = '';
-    o.setAttribute('aria-label', `円${i + 1}、${STATE_JA[st]}${playing[i] ? '、再生中' : ''}`);
+    redos[i].hidden = st !== 'saved';
+    mains[i].setAttribute('aria-label', `円${i + 1}、${STATE_JA[st]}${playing[i] ? '、再生中' : ''}`);
   }
 
   /* ---------- 操作 ---------- */
@@ -272,7 +339,8 @@
     busy = true;
     try { await startRec(i); } finally { busy = false; }
   }
-  orbs.forEach((o, i) => o.addEventListener('click', () => onTap(i)));
+  mains.forEach((m, i) => m.addEventListener('click', () => onTap(i)));
+  redos.forEach((r, i) => r.addEventListener('click', () => redo(i)));
 
   // 見出しを長押し（約1.5秒）で、録音をすべて消す
   let hold = 0;
@@ -296,8 +364,8 @@
   /* ---------- 起動 ---------- */
   async function init() {
     try {
-      const fx = JSON.parse(localStorage.getItem(FX_KEY) || 'null');
-      if (fx) for (const k of Object.keys(sliders)) if (fx[k] != null) sliders[k].value = fx[k];
+      const v = localStorage.getItem(FX_KEY);
+      if (v != null) space.value = v;
     } catch (e) { /* 既定値のまま */ }
 
     try {

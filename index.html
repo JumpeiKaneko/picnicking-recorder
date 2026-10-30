@@ -17,17 +17,15 @@
       <span>セッション</span>
       <span>11.22 取手</span>
     </header>
-    <button class="orb" type="button" data-i="0" data-state="empty"><span class="n">1</span><span class="t"></span></button>
-    <button class="orb" type="button" data-i="1" data-state="empty"><span class="n">2</span><span class="t"></span></button>
-    <button class="orb" type="button" data-i="2" data-state="empty"><span class="n">3</span><span class="t"></span></button>
-    <button class="orb" type="button" data-i="3" data-state="empty"><span class="n">4</span><span class="t"></span></button>
-    <button class="orb" type="button" data-i="4" data-state="empty"><span class="n">5</span><span class="t"></span></button>
+    <div class="orb" data-i="0" data-state="empty"><button class="main" type="button"><span class="n">1</span><span class="t"></span></button><button class="redo" type="button" hidden>取り直す</button></div>
+    <div class="orb" data-i="1" data-state="empty"><button class="main" type="button"><span class="n">2</span><span class="t"></span></button><button class="redo" type="button" hidden>取り直す</button></div>
+    <div class="orb" data-i="2" data-state="empty"><button class="main" type="button"><span class="n">3</span><span class="t"></span></button><button class="redo" type="button" hidden>取り直す</button></div>
+    <div class="orb" data-i="3" data-state="empty"><button class="main" type="button"><span class="n">4</span><span class="t"></span></button><button class="redo" type="button" hidden>取り直す</button></div>
+    <div class="orb" data-i="4" data-state="empty"><button class="main" type="button"><span class="n">5</span><span class="t"></span></button><button class="redo" type="button" hidden>取り直す</button></div>
   </div>
   <p class="msg" id="msg" role="status" aria-live="polite"></p>
-  <section class="ctl" aria-label="音の加工">
-    <div class="row"><label for="pitch">高さ</label><input id="pitch" type="range" min="-12" max="12" step="1" value="0"></div>
-    <div class="row"><label for="tone">音色</label><input id="tone" type="range" min="-100" max="100" step="1" value="0"></div>
-    <div class="row"><label for="space">響き</label><input id="space" type="range" min="0" max="100" step="1" value="0"></div>
+  <section class="ctl" aria-label="残響">
+    <div class="row"><label for="space">残響</label><input id="space" type="range" min="0" max="100" step="1" value="0"></div>
   </section>
 </main>
 <script src="app.js"></script>
