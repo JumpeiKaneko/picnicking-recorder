@@ -13,6 +13,8 @@
   const msg = document.getElementById('msg');
   const head = document.getElementById('head');
   const space = document.getElementById('space');
+  const vol = document.getElementById('vol');
+  const VOL_KEY = 'picnicking-vol';
 
   const takes = new Array(N).fill(null);    // { buf: ArrayBuffer, type, dur, at }
   const buffers = new Array(N).fill(null);  // デコード済み AudioBuffer
@@ -73,7 +75,7 @@
     conv.connect(wet);
     dry.connect(master); wet.connect(master);
     master.connect(an);
-    chain = { input, dry, wet, an, td: new Uint8Array(an.fftSize) };
+    chain = { input, dry, wet, master, an, td: new Uint8Array(an.fftSize) };
 
     // iPhoneは、消音スイッチがオンだとWebオーディオが無音になる。
     // <audio>要素を経由させると、スイッチに関係なく鳴る。
@@ -121,11 +123,17 @@
     const now = ctx.currentTime;
     chain.dry.gain.setTargetAtTime(1 - 0.5 * s, now, 0.03);
     chain.wet.gain.setTargetAtTime(1.4 * s, now, 0.03);
+    // 音量：中央（50）で等倍、右端で2倍
+    chain.master.gain.setTargetAtTime(Number(vol.value) / 50, now, 0.03);
   }
 
   space.addEventListener('input', () => {
     applyFx();
     try { localStorage.setItem(FX_KEY, space.value); } catch (e) { /* 保存できなくても動く */ }
+  });
+  vol.addEventListener('input', () => {
+    applyFx();
+    try { localStorage.setItem(VOL_KEY, vol.value); } catch (e) { /* 保存できなくても動く */ }
   });
 
   /* ---------- 再生 ---------- */
@@ -375,6 +383,8 @@
     try {
       const v = localStorage.getItem(FX_KEY);
       if (v != null) space.value = v;
+      const vv = localStorage.getItem(VOL_KEY);
+      if (vv != null) vol.value = vv;
     } catch (e) { /* 既定値のまま */ }
 
     try {

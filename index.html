@@ -24,7 +24,8 @@
     <div class="orb" data-i="4" data-state="empty"><button class="main" type="button"><span class="n">5</span><span class="t"></span></button><button class="redo" type="button" hidden>取り直す</button></div>
   </div>
   <p class="msg" id="msg" role="status" aria-live="polite"></p>
-  <section class="ctl" aria-label="残響">
+  <section class="ctl" aria-label="音量と残響">
+    <div class="row"><label for="vol">音量</label><input id="vol" type="range" min="0" max="100" step="1" value="50"></div>
     <div class="row"><label for="space">残響</label><input id="space" type="range" min="0" max="100" step="1" value="0"></div>
   </section>
 </main>
