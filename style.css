@@ -57,15 +57,45 @@ button { font: inherit; color: inherit; }
 .orb .n { font-size: 13px; letter-spacing: 0.2em; }
 .orb .t { font-size: 11px; letter-spacing: 0.1em; font-variant-numeric: tabular-nums; min-height: 1em; opacity: 0.9; }
 
-.orb .redo {
-  position: absolute; left: 50%; bottom: 9%; transform: translateX(-50%);
-  min-width: 68px; height: 28px; padding: 0 12px;
-  font-size: 11px; letter-spacing: 0.12em; white-space: nowrap;
-  background: transparent; color: var(--on); border: 1px solid rgba(242, 238, 229, 0.7); border-radius: 14px; cursor: pointer;
+.orb .foot {
+  position: absolute; left: 50%; bottom: 8.5%; transform: translateX(-50%);
+  display: flex; align-items: center; justify-content: center; gap: 5px;
+  width: max-content; max-width: 90%;
+  pointer-events: auto;
 }
-.orb .redo[hidden] { display: none; }
-.orb .redo:active { background: rgba(242, 238, 229, 0.18); }
-.orb .redo:focus-visible { outline: 1.5px solid var(--on); outline-offset: 2px; }
+.orb .foot[hidden] { display: none; }
+
+.orb .foot button {
+  height: 25px; padding: 0 8px;
+  font-size: 10px; letter-spacing: 0.06em; white-space: nowrap;
+  background: transparent; color: var(--on);
+  border: 1px solid rgba(242, 238, 229, 0.65); border-radius: 13px;
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+.orb .foot button:active { background: rgba(242, 238, 229, 0.18); }
+.orb .foot button:focus-visible { outline: 1.5px solid var(--on); outline-offset: 2px; }
+
+/* ローカット有効時（ON）：控えめに光が満ちるデザイン */
+.orb .foot .lowcut.is-on {
+  background: rgba(242, 238, 229, 0.28);
+  border-color: var(--on);
+  color: var(--on);
+  font-weight: 500;
+}
+
+/* 小型円（円2・円5）での文字サイズ・余白微調整 */
+.orb[data-i="1"] .foot,
+.orb[data-i="4"] .foot {
+  gap: 3px;
+  bottom: 7.5%;
+}
+.orb[data-i="1"] .foot button,
+.orb[data-i="4"] .foot button {
+  height: 22px; padding: 0 5px;
+  font-size: 9px; letter-spacing: 0.02em;
+  border-radius: 11px;
+}
 
 /* 録音中 */
 .orb[data-state="rec"] { background: var(--rec); border-color: var(--rec); color: var(--on); animation: breathe 2.6s ease-in-out infinite; }

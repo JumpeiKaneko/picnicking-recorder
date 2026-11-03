@@ -9,7 +9,10 @@
 
   const orbs = [...document.querySelectorAll('.orb')];
   const mains = orbs.map((o) => o.querySelector('.main'));
+  const foots = orbs.map((o) => o.querySelector('.foot'));
   const redos = orbs.map((o) => o.querySelector('.redo'));
+  const lowcuts = orbs.map((o) => o.querySelector('.lowcut'));
+  const isLowcut = new Array(N).fill(false);
   const msg = document.getElementById('msg');
   const head = document.getElementById('head');
   const space = document.getElementById('space');
@@ -181,8 +184,16 @@
     if (!buf) { playPlain(i); return; }
     const src = ctx.createBufferSource();
     src.buffer = buf;
-    src.connect(chain.input);
-    const p = { kind: 'buf', src, t0: ctx.currentTime, dur: buf.duration };
+
+    // ローカットフィルター（120Hz以下の風切り音・暗騒音を抑制）
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'highpass';
+    filter.frequency.value = isLowcut[i] ? 120 : 10;
+    filter.Q.value = 0.7;
+    src.connect(filter);
+    filter.connect(chain.input);
+
+    const p = { kind: 'buf', src, filter, t0: ctx.currentTime, dur: buf.duration };
     src.onended = () => { if (playing[i] === p) { playing[i] = null; paint(i); } };
     playing[i] = p;
     src.start();
@@ -307,7 +318,7 @@
       return;
     }
     const buf = await blob.arrayBuffer();
-    const row = { buf, type, dur, at: Date.now() };
+    const row = { buf, type, dur, at: Date.now(), lowcut: isLowcut[i] };
     takes[i] = row;
     buffers[i] = null;
     paint(i);
@@ -321,15 +332,32 @@
     }
   }
 
-  /* ---------- 取り直す ---------- */
+  /* ---------- 取り直す・ローカット ---------- */
   async function redo(i) {
     if (busy || rec) return;
     if (!window.confirm(`円${i + 1}の録音を消して、取り直しますか？`)) return;
     stop(i);
     takes[i] = null;
     buffers[i] = null;
+    isLowcut[i] = false;
     try { await dbDel(i); } catch (e) { /* なし */ }
     paint(i);
+  }
+
+  function toggleLowcut(i, e) {
+    e.stopPropagation();
+    isLowcut[i] = !isLowcut[i];
+    paint(i);
+    const p = playing[i];
+    if (p && p.filter) {
+      const now = ctx.currentTime;
+      const targetFreq = isLowcut[i] ? 120 : 10;
+      p.filter.frequency.setTargetAtTime(targetFreq, now, 0.03);
+    }
+    if (takes[i]) {
+      takes[i].lowcut = isLowcut[i];
+      dbPut(i, takes[i]).catch(() => {});
+    }
   }
 
   /* ---------- 表示 ---------- */
@@ -343,7 +371,9 @@
     const t = o.querySelector('.t');
     if (st === 'saved' && !playing[i]) t.textContent = fmt(takes[i].dur);
     else if (st === 'empty') t.textContent = '';
-    redos[i].hidden = st !== 'saved';
+    foots[i].hidden = st !== 'saved';
+    lowcuts[i].classList.toggle('is-on', isLowcut[i]);
+    lowcuts[i].setAttribute('aria-pressed', String(isLowcut[i]));
     mains[i].setAttribute('aria-label', `円${i + 1}、${STATE_JA[st]}${playing[i] ? '、再生中' : ''}`);
   }
 
@@ -358,6 +388,7 @@
   }
   mains.forEach((m, i) => m.addEventListener('click', () => onTap(i)));
   redos.forEach((r, i) => r.addEventListener('click', () => redo(i)));
+  lowcuts.forEach((l, i) => l.addEventListener('click', (e) => toggleLowcut(i, e)));
 
   // 見出しを長押し（約1.5秒）で、録音をすべて消す
   let hold = 0;
@@ -369,6 +400,7 @@
       if (rec) stopRec();
       takes.fill(null);
       buffers.fill(null);
+      isLowcut.fill(false);
       try { await dbClear(); } catch (e) { /* なし */ }
       for (let i = 0; i < N; i++) paint(i);
     }, 1500);
@@ -389,7 +421,10 @@
 
     try {
       if (navigator.storage && navigator.storage.persist) navigator.storage.persist();
-      for (let i = 0; i < N; i++) takes[i] = (await dbGet(i)) || null;
+      for (let i = 0; i < N; i++) {
+        takes[i] = (await dbGet(i)) || null;
+        isLowcut[i] = !!(takes[i] && takes[i].lowcut);
+      }
     } catch (e) {
       say('保存の領域を開けませんでした。リロードすると消えます');
     }
