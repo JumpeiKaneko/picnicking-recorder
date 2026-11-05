@@ -89,7 +89,7 @@
   function firebaseCloud() {
     let fdb = null;
     return {
-      async start(onClips, onState, onLikes, onComments) {
+      async start(onClips, onState, onComments) {
         onState('connecting');
         for (const src of FB_JS) await Promise.race([loadScript(src), sleep(12000).then(() => { throw new Error('timeout'); })]);
         if (!firebase.apps.length) firebase.initializeApp(FIREBASE);
@@ -109,7 +109,6 @@
           snap.forEach((d) => m.set(d.id, d.data()));
           cb(m);
         }, () => {});
-        watch('likes', onLikes);
         watch('comments', onComments);
       },
       async setDoc(col, id, obj) { await fdb.collection(col).doc(id).set(obj); },
@@ -148,7 +147,6 @@
   const cloud = window.__mockCloud || firebaseCloud();
   let cloudState = 'idle';         // idle | connecting | on | err
   let remote = new Map();          // 共有されている全クリップ（id → 情報）
-  let likes = new Map();           // `${投稿者}_${押した人}` → { postUid, by, at }
   let comments = new Map();        // コメントid → { postUid, by, name, text, at }
   const audioCache = new Map();    // id:at → { buf, type }
 
@@ -158,11 +156,10 @@
     if (s === 'on') { flushDeletes(); syncAll(); }
   }
   function onCloudClips(m) { remote = m; renderFeed(); }
-  function onCloudLikes(m) { likes = m; renderAllReact(); }
   function onCloudComments(m) { comments = m; renderAllReact(); }
 
   async function connect() {
-    try { await cloud.start(onCloudClips, onCloudState, onCloudLikes, onCloudComments); }
+    try { await cloud.start(onCloudClips, onCloudState, onCloudComments); }
     catch (e) { onCloudState('err'); }
   }
 
@@ -658,21 +655,22 @@
   function wfSvg(peaks) {
     const p = peaks && peaks.length ? peaks : new Array(BARS).fill(10);
     let r = '';
-    p.forEach((v, i) => { const h = Math.max(1, (v / 100) * 18); r += `<rect x="${i + 0.15}" y="${(10 - h / 2).toFixed(2)}" width="0.7" height="${h.toFixed(2)}"/>`; });
+    p.forEach((v, i) => { const h = Math.max(1, (v / 100) * 18); r += `<rect x="${i + 0.2}" y="${(10 - h / 2).toFixed(2)}" width="0.6" height="${h.toFixed(2)}" rx="0.3"/>`; });
     return `<svg viewBox="0 0 ${p.length} 20" preserveAspectRatio="none" aria-hidden="true" fill="currentColor">${r}</svg>`;
   }
 
   function newCard(u) {
     const el = document.createElement('article');
     el.className = 'post';
-    el.innerHTML = '<div class="map"></div><div class="head2"><span class="name"></span><span class="when"></span></div><ul class="clips"></ul><p class="note"></p><div class="act"><button type="button" class="like" aria-pressed="false">いいね<b class="n"></b></button><span class="cc"></span></div><ul class="cm"></ul><button type="button" class="more" hidden></button><form class="cf" autocomplete="off"><input type="text" maxlength="80" placeholder="コメントを書く" aria-label="コメント"><button type="submit">送る</button></form>';
+    el.innerHTML = '<div class="map"></div><div class="head2"><span class="name"></span><span class="when"></span></div><ul class="clips"></ul><p class="note"></p><div class="act"><button type="button" class="cmt" aria-label="コメントを書く"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.500 11.500c0 4.100-3.800 7.500-8.500 7.500-1.100 0-2.200-.2-3.200-.5L4 20l1.400-3.900c-1.200-1.300-1.900-2.900-1.900-4.600C3.500 7.400 7.300 4 12 4s8.500 3.400 8.500 7.500z"/></svg></button></div><ul class="cm"></ul><button type="button" class="more" hidden></button><form class="cf" autocomplete="off"><input type="text" maxlength="80" placeholder="コメントを追加" aria-label="コメント"><button type="submit" disabled>投稿</button></form>';
     const c = { uid: u, el, list: [], map: null, layer: null, sig: '', all: false };
-    el.querySelector('.like').addEventListener('click', () => toggleLike(u));
+    el.querySelector('.cmt').addEventListener('click', () => el.querySelector('.cf input').focus());
+    el.querySelector('.cf input').addEventListener('input', (e) => { el.querySelector('.cf button').disabled = !e.target.value.trim(); });
     el.querySelector('.more').addEventListener('click', () => { c.all = !c.all; renderReact(c); });
     el.querySelector('.cf').addEventListener('submit', (e) => {
       e.preventDefault();
       const inp = e.target.querySelector('input');
-      if (sendComment(u, inp.value)) inp.value = '';
+      if (sendComment(u, inp.value)) { inp.value = ''; e.target.querySelector('button').disabled = true; }
     });
     io.observe(el.querySelector('.map'));
     el.querySelector('.map').__card = c;
@@ -744,8 +742,7 @@
       const li = document.createElement('li');
       li.className = 'clip';
       li.dataset.pk = m.id;
-      li.innerHTML = `<span class="no">${m.slot + 1}</span><button type="button" class="pl" aria-label="${m.slot + 1}を再生"></button><div class="wf"><span class="off">${wfSvg(m.peaks)}</span><span class="on">${wfSvg(m.peaks)}</span></div><span class="tm">${fmt(m.dur)}</span>`;
-      li.querySelector('.wf').querySelectorAll('span').forEach((s) => { s.style.cssText = 'position:absolute;inset:0;'; });
+      li.innerHTML = `<button type="button" class="pl" aria-label="${m.slot + 1}を再生"><span class="no">${m.slot + 1}</span><span class="wf"><span class="off">${wfSvg(m.peaks)}</span><span class="on">${wfSvg(m.peaks)}</span></span><span class="tm">${fmt(m.dur)}</span></button>`;
       li.querySelector('.pl').addEventListener('click', () => toggle(m.id));
       ul.appendChild(li);
       if (playing.has(m.id) || loading.has(m.id)) li.classList.add('is-play');
@@ -766,18 +763,6 @@
     if (cloudState !== 'on') { flashNet('共有につながっていないため、操作できません'); return false; }
     return true;
   };
-
-  async function toggleLike(u) {
-    if (!needCloud()) return;
-    const id = `${u}_${uid}`;
-    const on = !likes.has(id);
-    if (on) likes.set(id, { postUid: u, by: uid, at: Date.now() }); else likes.delete(id);
-    renderAllReact();
-    try {
-      if (on) await cloud.setDoc('likes', id, { postUid: u, by: uid, at: Date.now() });
-      else await cloud.delDoc('likes', id);
-    } catch (e) { flashNet('反映できませんでした'); }
-  }
 
   function sendComment(u, raw) {
     const text = raw.trim().slice(0, 80);
@@ -800,13 +785,7 @@
 
   function renderReact(c) {
     const u = c.uid;
-    let n = 0, mine = false;
-    likes.forEach((l) => { if (l.postUid === u) { n++; if (l.by === uid) mine = true; } });
-    const lb = c.el.querySelector('.like');
-    lb.setAttribute('aria-pressed', String(mine));
-    lb.querySelector('.n').textContent = n ? ` ${n}` : '';
     const list = [...comments.entries()].filter(([, x]) => x.postUid === u).sort((a, b) => a[1].at - b[1].at);
-    c.el.querySelector('.cc').textContent = list.length ? `コメント ${list.length}` : '';
     const shown = c.all || list.length <= 3 ? list : list.slice(-3);
     const ul = c.el.querySelector('.cm');
     ul.innerHTML = '';
@@ -815,7 +794,8 @@
       const nm = document.createElement('b'); nm.textContent = x.name || '名前なし';
       const tx = document.createElement('span'); tx.textContent = x.text;
       const tm = document.createElement('time'); tm.textContent = whenText(x.at);
-      li.append(nm, tx, tm);
+      li.append(nm, tx);
+      li.appendChild(tm);
       if (x.by === uid) {
         const rm = document.createElement('button');
         rm.type = 'button'; rm.className = 'rm'; rm.textContent = '消す';
@@ -826,7 +806,7 @@
     });
     const more = c.el.querySelector('.more');
     more.hidden = list.length <= 3;
-    more.textContent = c.all ? '閉じる' : `すべて見る（${list.length}）`;
+    more.textContent = c.all ? '閉じる' : `コメント${list.length}件をすべて見る`;
   }
   const renderAllReact = () => cards.forEach(renderReact);
 
