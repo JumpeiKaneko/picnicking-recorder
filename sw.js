@@ -1,5 +1,5 @@
-const CACHE = 'picnicking-recorder-v5';
-const FILES = ['./', 'index.html', 'style.css', 'app.js'];
+const CACHE = 'picnicking-recorder-v3';
+const FILES = ['./', 'index.html', 'style.css', 'app.js', 'vendor/leaflet.js', 'vendor/leaflet.css'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES)).then(() => self.skipWaiting()));

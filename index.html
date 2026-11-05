@@ -6,229 +6,69 @@
 <meta name="theme-color" content="#f2eee5">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>ピクニッキング・セッション</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+Antique:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+Antique:wght@400;500&display=swap">
+<link rel="stylesheet" href="vendor/leaflet.css">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-
-<!-- トップ共通バー（ブランド表示・タブ切り替え・ユーザー名） -->
-<header class="top-bar">
-  <div class="top-row">
-    <div class="brand">
-      <span class="brand-title">ピクニッキング・セッション</span>
-      <span class="brand-sub">11.22 取手</span>
+<div class="shell">
+  <nav class="bar" aria-label="画面">
+    <div class="tabs" id="tabs">
+      <button type="button" data-t="0" aria-current="true">録る</button>
+      <button type="button" data-t="1">聴く</button>
+      <i class="ul" id="ul"></i>
     </div>
-    <button type="button" class="user-chip" id="userChip" title="タップして名前を変更">
-      <span class="user-chip-icon">👤</span>
-      <span class="user-chip-name" id="userChipName">名前を設定</span>
-    </button>
-  </div>
-  <!-- タブスイッチャー（タップでもスワイプでも連動） -->
-  <nav class="tab-nav" aria-label="ページ切り替え">
-    <button type="button" class="tab-btn is-active" id="tabHome">
-      <span>録音</span>
-    </button>
-    <button type="button" class="tab-btn" id="tabFeed">
-      <span>みんなの音・マップ</span>
-      <span class="tab-badge" id="feedCountBadge" hidden>0</span>
-    </button>
-    <div class="tab-indicator" id="tabIndicator"></div>
+    <button type="button" class="who" id="who" aria-label="ユーザーネームを変える"></button>
   </nav>
-</header>
 
-<!-- 初回ユーザー名入力オーバーレイ -->
-<div class="welcome" id="welcome" hidden>
-  <form class="welcome-box" id="welcomeForm">
-    <div class="welcome-decor"></div>
-    <h2 class="welcome-title">ピクニッキング・セッション</h2>
-    <p class="welcome-sub">東京藝術大学 取手校地 11.22</p>
-    <p class="welcome-desc">ワークショップで録った音を共有するときに表示するお名前（ニックネーム）を入力してください。</p>
-    <div class="welcome-field">
-      <input class="welcome-input" id="nameInput" type="text" maxlength="12" placeholder="お名前・ニックネーム" autocomplete="nickname" required>
+  <div class="pager" id="pager">
+    <section class="pane" id="p0" aria-label="録る">
+      <div class="in">
+        <div class="stage" id="stage">
+          <header class="head" id="head">
+            <span>ピクニッキング</span>
+            <span>セッション</span>
+            <span>11.22 取手</span>
+          </header>
+          <div class="orb" data-i="0" data-state="empty"><button class="main" type="button"><span class="n">1</span><span class="t"></span></button><button class="lowcut" type="button" hidden aria-pressed="false">ローカット</button><button class="redo" type="button" hidden>取り直す</button></div>
+          <div class="orb" data-i="1" data-state="empty"><button class="main" type="button"><span class="n">2</span><span class="t"></span></button><button class="lowcut" type="button" hidden aria-pressed="false">ローカット</button><button class="redo" type="button" hidden>取り直す</button></div>
+          <div class="orb" data-i="2" data-state="empty"><button class="main" type="button"><span class="n">3</span><span class="t"></span></button><button class="lowcut" type="button" hidden aria-pressed="false">ローカット</button><button class="redo" type="button" hidden>取り直す</button></div>
+          <div class="orb" data-i="3" data-state="empty"><button class="main" type="button"><span class="n">4</span><span class="t"></span></button><button class="lowcut" type="button" hidden aria-pressed="false">ローカット</button><button class="redo" type="button" hidden>取り直す</button></div>
+          <div class="orb" data-i="4" data-state="empty"><button class="main" type="button"><span class="n">5</span><span class="t"></span></button><button class="lowcut" type="button" hidden aria-pressed="false">ローカット</button><button class="redo" type="button" hidden>取り直す</button></div>
+        </div>
+        <p class="msg" id="msg" role="status" aria-live="polite"></p>
+        <section class="ctl" aria-label="音量・残響・音程">
+          <div class="row"><label for="vol">音量</label><input id="vol" type="range" min="0" max="100" step="1" value="50"></div>
+          <div class="row"><label for="space">残響</label><input id="space" type="range" min="0" max="100" step="1" value="0"></div>
+          <div class="row"><label for="pitch">音程</label><input id="pitch" type="range" min="-12" max="12" step="1" value="0"></div>
+        </section>
+      </div>
+    </section>
+
+    <section class="pane" id="p1" aria-label="聴く">
+      <div class="in">
+        <p class="net" id="net"></p>
+        <div id="feed" class="feed"></div>
+        <p class="empty" id="empty">まだ投稿がありません。<br>録音すると、ここに並びます。</p>
+      </div>
+    </section>
+  </div>
+</div>
+
+<div class="gate" id="gate" hidden>
+  <form class="gate-in" id="gateForm" autocomplete="off">
+    <p class="gate-t">ピクニッキング<br>セッション</p>
+    <label for="nameIn">ユーザーネーム</label>
+    <input id="nameIn" type="text" maxlength="12" enterkeyhint="done" autocapitalize="off" autocorrect="off" spellcheck="false">
+    <p class="gate-h">ほかの参加者に表示されます（12文字まで）</p>
+    <div class="gate-b">
+      <button type="submit" class="go">はじめる</button>
+      <button type="button" class="cancel" id="gateCancel" hidden>もどる</button>
     </div>
-    <button class="welcome-btn" type="submit">はじめる</button>
   </form>
 </div>
 
-<!-- 録音場所指定モーダル（取手マップタップ） -->
-<div class="loc-modal" id="locModal" hidden>
-  <div class="loc-sheet">
-    <div class="loc-head">
-      <div class="loc-head-text">
-        <span class="loc-badge" id="locOrbBadge">円1</span>
-        <h3 class="loc-title" id="locPrompt">どこで録った音ですか？</h3>
-      </div>
-      <button type="button" class="loc-close" id="locCancel" aria-label="閉じる">✕</button>
-    </div>
-    <p class="loc-guide">取手校地のマップ上をタップして場所を指定してください</p>
-    <div class="map-frame" id="pickerMap">
-      <svg class="toride-svg" viewBox="0 0 360 230" aria-label="東京藝術大学取手校地マップ">
-        <!-- 敷地輪郭（有機的な手描き風曲線） -->
-        <path class="map-outline" d="M 38,95 C 32,48 88,22 172,22 C 258,22 330,44 334,104 C 338,162 290,202 200,206 C 110,210 44,158 38,95 Z"/>
-        <!-- 小道・バスロータリー -->
-        <path class="map-road" d="M 46,126 Q 130,122 184,110 T 326,95"/>
-        <path class="map-road" d="M 184,110 Q 178,158 196,198"/>
-        <ellipse class="map-rotary" cx="136" cy="122" rx="18" ry="10"/>
-        <!-- ヤギ小屋隣の広場（メインエリア） -->
-        <path class="map-plaza" d="M 142,66 C 166,56 218,58 232,80 C 244,100 222,124 186,124 C 152,124 126,92 142,66 Z"/>
-        <!-- 主要スポット -->
-        <rect class="map-bldg" x="74" y="54" width="34" height="20" rx="2"/>
-        <text class="map-lbl" x="91" y="48">メディア棟</text>
-        <rect class="map-bldg" x="246" y="48" width="40" height="22" rx="2"/>
-        <text class="map-lbl" x="266" y="42">共通工房</text>
-        <rect class="map-bldg" x="252" y="122" width="44" height="24" rx="2"/>
-        <text class="map-lbl" x="274" y="159">専門教育棟</text>
-        <rect class="map-bldg" x="82" y="148" width="32" height="18" rx="2"/>
-        <text class="map-lbl" x="98" y="179">福利施設</text>
-        <circle class="map-spot" cx="176" cy="78" r="3.5"/>
-        <text class="map-lbl map-lbl-main" x="176" y="70">ヤギ小屋広場</text>
-        <text class="map-lbl" x="136" y="142">バス停</text>
-        <text class="map-lbl" x="218" y="182">芝生・斜面</text>
-      </svg>
-      <div class="pin-layer" id="pickerPinLayer"></div>
-    </div>
-    <div class="loc-spot-preview">
-      <span>選択中:</span>
-      <strong id="locSpotName">ヤギ小屋広場</strong>
-    </div>
-    <div class="loc-foot">
-      <button type="button" class="loc-gps" id="locGpsBtn">📍 現在地（GPS）</button>
-      <button type="button" class="loc-post" id="locConfirmBtn">この場所で共有する</button>
-    </div>
-  </div>
-</div>
-
-<!-- 横スワイプコンテナ（1: 録音ホーム ／ 2: 取手マップ＆インスタ風フィード） -->
-<div class="pager" id="pager">
-
-  <!-- ページ1：録音ホーム -->
-  <section class="page page-home" aria-label="録音と再生">
-    <main class="app-home">
-      <!-- 5つの有機的な円（音の採集・再生） -->
-      <div class="stage" id="stage">
-        <div class="orb" data-i="0" data-state="empty">
-          <button class="main" type="button"><span class="n">1</span><span class="t"></span></button>
-          <div class="foot" hidden>
-            <button class="redo" type="button">取り直す</button>
-            <button class="lowcut" type="button" aria-pressed="false">ローカット</button>
-            <button class="share" type="button">共有</button>
-          </div>
-        </div>
-        <div class="orb" data-i="1" data-state="empty">
-          <button class="main" type="button"><span class="n">2</span><span class="t"></span></button>
-          <div class="foot" hidden>
-            <button class="redo" type="button">取り直す</button>
-            <button class="lowcut" type="button" aria-pressed="false">ローカット</button>
-            <button class="share" type="button">共有</button>
-          </div>
-        </div>
-        <div class="orb" data-i="2" data-state="empty">
-          <button class="main" type="button"><span class="n">3</span><span class="t"></span></button>
-          <div class="foot" hidden>
-            <button class="redo" type="button">取り直す</button>
-            <button class="lowcut" type="button" aria-pressed="false">ローカット</button>
-            <button class="share" type="button">共有</button>
-          </div>
-        </div>
-        <div class="orb" data-i="3" data-state="empty">
-          <button class="main" type="button"><span class="n">4</span><span class="t"></span></button>
-          <div class="foot" hidden>
-            <button class="redo" type="button">取り直す</button>
-            <button class="lowcut" type="button" aria-pressed="false">ローカット</button>
-            <button class="share" type="button">共有</button>
-          </div>
-        </div>
-        <div class="orb" data-i="4" data-state="empty">
-          <button class="main" type="button"><span class="n">5</span><span class="t"></span></button>
-          <div class="foot" hidden>
-            <button class="redo" type="button">取り直す</button>
-            <button class="lowcut" type="button" aria-pressed="false">ローカット</button>
-            <button class="share" type="button">共有</button>
-          </div>
-        </div>
-      </div>
-
-      <p class="msg" id="msg" role="status" aria-live="polite"></p>
-
-      <!-- 音量と残響スライダー -->
-      <section class="ctl" aria-label="音量と残響">
-        <div class="row">
-          <label for="vol">音量</label>
-          <input id="vol" type="range" min="0" max="100" step="1" value="50">
-          <span class="ctl-val" id="volVal">50</span>
-        </div>
-        <div class="row">
-          <label for="space">残響</label>
-          <input id="space" type="range" min="0" max="100" step="1" value="0">
-          <span class="ctl-val" id="spaceVal">0</span>
-        </div>
-      </section>
-
-      <!-- 下部ガイドリンク -->
-      <footer class="home-foot">
-        <span class="home-hint">長押しで全リセット</span>
-        <button type="button" class="swipe-hint-btn" id="toFeedBtn">
-          <span>みんなの音・マップを見る</span>
-          <span class="arrow">→</span>
-        </button>
-      </footer>
-    </main>
-  </section>
-
-  <!-- ページ2：取手マップ ＋ インスタ風サウンドフィード -->
-  <section class="page page-feed" aria-label="みんなの音と取手マップ">
-    <div class="feed-wrap">
-      <!-- 上部：取手校地切り抜きマップ -->
-      <section class="map-card" aria-label="サウンドマップ">
-        <div class="map-card-head">
-          <div class="map-card-title">
-            <span class="map-dot"></span>
-            <strong>取手校地 サウンドマップ</strong>
-          </div>
-          <span class="map-card-hint">ピンをタップで再生</span>
-        </div>
-        <div class="map-frame" id="feedMap">
-          <svg class="toride-svg" viewBox="0 0 360 230" aria-label="取手校地サウンドマップ">
-            <path class="map-outline" d="M 38,95 C 32,48 88,22 172,22 C 258,22 330,44 334,104 C 338,162 290,202 200,206 C 110,210 44,158 38,95 Z"/>
-            <path class="map-road" d="M 46,126 Q 130,122 184,110 T 326,95"/>
-            <path class="map-road" d="M 184,110 Q 178,158 196,198"/>
-            <ellipse class="map-rotary" cx="136" cy="122" rx="18" ry="10"/>
-            <path class="map-plaza" d="M 142,66 C 166,56 218,58 232,80 C 244,100 222,124 186,124 C 152,124 126,92 142,66 Z"/>
-            <rect class="map-bldg" x="74" y="54" width="34" height="20" rx="2"/>
-            <text class="map-lbl" x="91" y="48">メディア棟</text>
-            <rect class="map-bldg" x="246" y="48" width="40" height="22" rx="2"/>
-            <text class="map-lbl" x="266" y="42">共通工房</text>
-            <rect class="map-bldg" x="252" y="122" width="44" height="24" rx="2"/>
-            <text class="map-lbl" x="274" y="159">専門教育棟</text>
-            <rect class="map-bldg" x="82" y="148" width="32" height="18" rx="2"/>
-            <text class="map-lbl" x="98" y="179">福利施設</text>
-            <circle class="map-spot" cx="176" cy="78" r="3.5"/>
-            <text class="map-lbl map-lbl-main" x="176" y="70">ヤギ小屋広場</text>
-            <text class="map-lbl" x="136" y="142">バス停</text>
-            <text class="map-lbl" x="218" y="182">芝生・斜面</text>
-          </svg>
-          <div class="pin-layer" id="feedPinLayer"></div>
-        </div>
-      </section>
-
-      <!-- 下部：ユーザーごとの投稿サウンドタイムライン -->
-      <section class="feed-section" aria-label="投稿サウンド一覧">
-        <div class="feed-section-head">
-          <span class="feed-section-title">タイムライン</span>
-          <button type="button" class="sync-btn" id="syncBtn">
-            <span class="sync-icon">↻</span>
-            <span class="sync-text">更新</span>
-          </button>
-        </div>
-        <div class="feed-list" id="feedList" role="region" aria-live="polite"></div>
-      </section>
-    </div>
-  </section>
-</div>
-
-<!-- Firebase SDK -->
-<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="vendor/leaflet.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
