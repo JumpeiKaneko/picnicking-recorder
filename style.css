@@ -223,27 +223,25 @@ input[type="range"] { touch-action: pan-y; }
 
 .msg.ok { color: var(--mute); }
 
-/* ---------- コメント ---------- */
-.act { margin: 16px 0 0; }
-.act button { background: none; border: 0; padding: 2px; width: 28px; height: 28px; display: grid; place-items: center; cursor: pointer; color: var(--mute); transition: color 0.2s; }
-.act button:hover { color: var(--ink); }
-.act svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; stroke-linecap: round; }
+/* ---------- コメント（控えめ） ---------- */
+.act { margin: 12px 0 0; }
+.act button { display: inline-flex; align-items: center; gap: 6px; background: none; border: 0; padding: 4px 2px; cursor: pointer; color: var(--mute); transition: color 0.2s; }
+.act button[aria-expanded="true"] { color: var(--ink); }
+.act svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; }
+.act .cn { font-size: 11px; font-weight: 400; letter-spacing: 0.06em; font-variant-numeric: tabular-nums; }
 .act button:focus-visible { outline: 1.5px solid var(--ink); outline-offset: 2px; border-radius: 6px; }
 
-.cm { list-style: none; margin: 4px 0 0; padding: 0 2px; }
-.cm li { display: block; padding: 3px 0; font-size: 13px; line-height: 1.8; overflow-wrap: anywhere; }
+.cp { margin-top: 6px; }
+.cp[hidden] { display: none; }
+.cm { list-style: none; margin: 0; padding: 0 2px; max-height: 34vh; overflow-y: auto; }
+.cm li { display: block; padding: 3px 0; font-size: 12.5px; line-height: 1.8; overflow-wrap: anywhere; color: var(--ink); }
 .cm li b { font-weight: 500; letter-spacing: 0.08em; margin-right: 10px; }
 .cm li time { margin-left: 10px; font-size: 10px; color: var(--mute); letter-spacing: 0.08em; font-variant-numeric: tabular-nums; }
 .cm li .rm { margin-left: 8px; background: none; border: 0; padding: 0; font-size: 10px; letter-spacing: 0.1em; color: var(--mute); cursor: pointer; }
-.more { display: block; background: none; border: 0; padding: 6px 2px 0; font-size: 12px; letter-spacing: 0.08em; color: var(--mute); cursor: pointer; }
-.more[hidden] { display: none; }
 
-.cf {
-  display: flex; align-items: center; gap: 10px; margin-top: 12px; padding: 0 8px 0 20px;
-  border: 1.5px solid var(--line); border-radius: 26px 22px 26px 24px / 24px 26px 24px 26px; transition: border-color 0.3s;
-}
+.cf { display: flex; align-items: center; gap: 10px; margin-top: 8px; padding: 0 4px 0 2px; border-bottom: 1px solid var(--line); transition: border-color 0.3s; }
 .cf:focus-within { border-color: var(--play); }
-.cf input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--ink); font: inherit; font-size: 16px; height: 46px; outline: none; border-radius: 0; }
-.cf input::placeholder { color: var(--mute); font-size: 13px; letter-spacing: 0.08em; }
-.cf button { background: none; border: 0; font-size: 12px; letter-spacing: 0.14em; color: var(--play); padding: 10px 12px; cursor: pointer; }
+.cf input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--ink); font: inherit; font-size: 16px; height: 40px; outline: none; border-radius: 0; }
+.cf input::placeholder { color: var(--mute); font-size: 12.5px; letter-spacing: 0.08em; }
+.cf button { background: none; border: 0; font-size: 12px; letter-spacing: 0.14em; color: var(--play); padding: 8px 6px; cursor: pointer; }
 .cf button:disabled { opacity: 0; pointer-events: none; }

@@ -662,11 +662,15 @@
   function newCard(u) {
     const el = document.createElement('article');
     el.className = 'post';
-    el.innerHTML = '<div class="map"></div><div class="head2"><span class="name"></span><span class="when"></span></div><ul class="clips"></ul><p class="note"></p><div class="act"><button type="button" class="cmt" aria-label="コメントを書く"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.500 11.500c0 4.100-3.800 7.500-8.500 7.500-1.100 0-2.200-.2-3.200-.5L4 20l1.400-3.900c-1.200-1.300-1.900-2.900-1.900-4.600C3.500 7.400 7.300 4 12 4s8.500 3.400 8.500 7.500z"/></svg></button></div><ul class="cm"></ul><button type="button" class="more" hidden></button><form class="cf" autocomplete="off"><input type="text" maxlength="80" placeholder="コメントを追加" aria-label="コメント"><button type="submit" disabled>投稿</button></form>';
-    const c = { uid: u, el, list: [], map: null, layer: null, sig: '', all: false };
-    el.querySelector('.cmt').addEventListener('click', () => el.querySelector('.cf input').focus());
+    el.innerHTML = '<div class="map"></div><div class="head2"><span class="name"></span><span class="when"></span></div><ul class="clips"></ul><p class="note"></p><div class="act"><button type="button" class="cmt" aria-label="コメント" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.500 11.500c0 4.100-3.800 7.500-8.500 7.500-1.100 0-2.200-.2-3.200-.5L4 20l1.400-3.900c-1.200-1.300-1.900-2.900-1.900-4.600C3.500 7.400 7.300 4 12 4s8.500 3.400 8.500 7.500z"/></svg><b class="cn"></b></button></div><div class="cp" hidden><ul class="cm"></ul><form class="cf" autocomplete="off"><input type="text" maxlength="80" placeholder="コメントを追加" aria-label="コメント"><button type="submit" disabled>投稿</button></form></div>';
+    const c = { uid: u, el, list: [], map: null, layer: null, sig: '' };
+    el.querySelector('.cmt').addEventListener('click', () => {
+      const cp = el.querySelector('.cp');
+      cp.hidden = !cp.hidden;
+      el.querySelector('.cmt').setAttribute('aria-expanded', String(!cp.hidden));
+      if (!cp.hidden) el.querySelector('.cf input').focus();
+    });
     el.querySelector('.cf input').addEventListener('input', (e) => { el.querySelector('.cf button').disabled = !e.target.value.trim(); });
-    el.querySelector('.more').addEventListener('click', () => { c.all = !c.all; renderReact(c); });
     el.querySelector('.cf').addEventListener('submit', (e) => {
       e.preventDefault();
       const inp = e.target.querySelector('input');
@@ -786,7 +790,8 @@
   function renderReact(c) {
     const u = c.uid;
     const list = [...comments.entries()].filter(([, x]) => x.postUid === u).sort((a, b) => a[1].at - b[1].at);
-    const shown = c.all || list.length <= 3 ? list : list.slice(-3);
+    const shown = list;
+    c.el.querySelector('.cn').textContent = list.length ? String(list.length) : '';
     const ul = c.el.querySelector('.cm');
     ul.innerHTML = '';
     shown.forEach(([id, x]) => {
@@ -804,9 +809,6 @@
       }
       ul.appendChild(li);
     });
-    const more = c.el.querySelector('.more');
-    more.hidden = list.length <= 3;
-    more.textContent = c.all ? '閉じる' : `コメント${list.length}件をすべて見る`;
   }
   const renderAllReact = () => cards.forEach(renderReact);
 
