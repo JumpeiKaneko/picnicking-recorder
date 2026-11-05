@@ -146,7 +146,6 @@ input[type="range"] { touch-action: pan-y; }
   position: relative; width: 100%; aspect-ratio: 4 / 3; background: #e6e2d8; overflow: hidden;
   border: 1px solid rgba(154, 160, 179, 0.5);
 }
-.post .map .leaflet-tile-pane { filter: saturate(0.55) sepia(0.18) contrast(0.96); }
 .post .map .leaflet-container { background: #e6e2d8; font-family: var(--font); }
 .post .map .leaflet-control-attribution { font-size: 9px; background: rgba(242, 238, 229, 0.8); color: var(--mute); }
 .post .map .leaflet-control-attribution a { color: var(--mute); }
@@ -157,7 +156,7 @@ input[type="range"] { touch-action: pan-y; }
 
 .pin {
   display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%;
-  background: var(--ink); color: var(--on); border: 1.5px solid var(--on);
+  background: var(--ink); color: var(--on); border: 2px solid var(--on);
   font-size: 12px; font-weight: 500; font-variant-numeric: tabular-nums;
   box-shadow: 0 1px 3px rgba(29, 32, 48, 0.35);
   transition: transform 0.25s, background-color 0.25s;

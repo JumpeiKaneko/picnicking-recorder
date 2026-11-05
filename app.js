@@ -13,7 +13,7 @@
   // 東京藝術大学 取手校地（国土地理院の住所検索 小文間5000 を中心にした範囲）
   const CAMPUS = { lat: 35.8828, lng: 140.1147, dLat: 0.0030, dLng: 0.0037 };
   const CAMPUS_BOUNDS = [[CAMPUS.lat - CAMPUS.dLat, CAMPUS.lng - CAMPUS.dLng], [CAMPUS.lat + CAMPUS.dLat, CAMPUS.lng + CAMPUS.dLng]];
-  const TILE = 'https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png';
+  const TILE = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 
   const FIREBASE = {
     apiKey: 'AIzaSyA7jnOk0o5V4652vWQGflSzDyA_QELDxYg',
@@ -89,7 +89,7 @@
   function firebaseCloud() {
     let fdb = null;
     return {
-      async start(onClips, onState) {
+      async start(onClips, onState, onLikes, onComments) {
         onState('connecting');
         for (const src of FB_JS) await Promise.race([loadScript(src), sleep(12000).then(() => { throw new Error('timeout'); })]);
         if (!firebase.apps.length) firebase.initializeApp(FIREBASE);
@@ -104,7 +104,16 @@
           },
           (err) => onState('err', err)
         );
+        const watch = (name, cb) => fdb.collection(name).onSnapshot((snap) => {
+          const m = new Map();
+          snap.forEach((d) => m.set(d.id, d.data()));
+          cb(m);
+        }, () => {});
+        watch('likes', onLikes);
+        watch('comments', onComments);
       },
+      async setDoc(col, id, obj) { await fdb.collection(col).doc(id).set(obj); },
+      async delDoc(col, id) { await fdb.collection(col).doc(id).delete(); },
       async post(meta, bytes, type) {
         const b = fdb.batch();
         b.set(fdb.collection('audio').doc(meta.id), {
@@ -139,6 +148,8 @@
   const cloud = window.__mockCloud || firebaseCloud();
   let cloudState = 'idle';         // idle | connecting | on | err
   let remote = new Map();          // 共有されている全クリップ（id → 情報）
+  let likes = new Map();           // `${投稿者}_${押した人}` → { postUid, by, at }
+  let comments = new Map();        // コメントid → { postUid, by, name, text, at }
   const audioCache = new Map();    // id:at → { buf, type }
 
   function onCloudState(s) {
@@ -147,9 +158,11 @@
     if (s === 'on') { flushDeletes(); syncAll(); }
   }
   function onCloudClips(m) { remote = m; renderFeed(); }
+  function onCloudLikes(m) { likes = m; renderAllReact(); }
+  function onCloudComments(m) { comments = m; renderAllReact(); }
 
   async function connect() {
-    try { await cloud.start(onCloudClips, onCloudState); }
+    try { await cloud.start(onCloudClips, onCloudState, onCloudLikes, onCloudComments); }
     catch (e) { onCloudState('err'); }
   }
 
@@ -652,8 +665,15 @@
   function newCard(u) {
     const el = document.createElement('article');
     el.className = 'post';
-    el.innerHTML = '<div class="map"></div><div class="head2"><span class="name"></span><span class="when"></span></div><ul class="clips"></ul><p class="note"></p>';
-    const c = { uid: u, el, list: [], map: null, layer: null, sig: '' };
+    el.innerHTML = '<div class="map"></div><div class="head2"><span class="name"></span><span class="when"></span></div><ul class="clips"></ul><p class="note"></p><div class="act"><button type="button" class="like" aria-pressed="false">いいね<b class="n"></b></button><span class="cc"></span></div><ul class="cm"></ul><button type="button" class="more" hidden></button><form class="cf" autocomplete="off"><input type="text" maxlength="80" placeholder="コメントを書く" aria-label="コメント"><button type="submit">送る</button></form>';
+    const c = { uid: u, el, list: [], map: null, layer: null, sig: '', all: false };
+    el.querySelector('.like').addEventListener('click', () => toggleLike(u));
+    el.querySelector('.more').addEventListener('click', () => { c.all = !c.all; renderReact(c); });
+    el.querySelector('.cf').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const inp = e.target.querySelector('input');
+      if (sendComment(u, inp.value)) inp.value = '';
+    });
     io.observe(el.querySelector('.map'));
     el.querySelector('.map').__card = c;
     return c;
@@ -673,8 +693,8 @@
       boxZoom: false, keyboard: false, tap: false, zoomSnap: 0.25, attributionControl: true,
     });
     L.tileLayer(TILE, {
-      minZoom: 14, maxZoom: 19, maxNativeZoom: 18,
-      attribution: '<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">地理院タイル</a>',
+      minZoom: 14, maxZoom: 19, maxNativeZoom: 19,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>',
     }).addTo(map);
     map.attributionControl.setPrefix('');
     c.map = map;
@@ -735,6 +755,81 @@
     setPins(c);
   }
 
+  let netTimer = 0;
+  function flashNet(t) {
+    netEl.textContent = t;
+    clearTimeout(netTimer);
+    netTimer = setTimeout(renderNet, 3000);
+  }
+  const needCloud = () => {
+    if (!myName) { openGate(false); return false; }
+    if (cloudState !== 'on') { flashNet('共有につながっていないため、操作できません'); return false; }
+    return true;
+  };
+
+  async function toggleLike(u) {
+    if (!needCloud()) return;
+    const id = `${u}_${uid}`;
+    const on = !likes.has(id);
+    if (on) likes.set(id, { postUid: u, by: uid, at: Date.now() }); else likes.delete(id);
+    renderAllReact();
+    try {
+      if (on) await cloud.setDoc('likes', id, { postUid: u, by: uid, at: Date.now() });
+      else await cloud.delDoc('likes', id);
+    } catch (e) { flashNet('反映できませんでした'); }
+  }
+
+  function sendComment(u, raw) {
+    const text = raw.trim().slice(0, 80);
+    if (!text || !needCloud()) return false;
+    const id = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+    const obj = { postUid: u, by: uid, name: myName, text, at: Date.now() };
+    comments.set(id, obj);
+    renderAllReact();
+    cloud.setDoc('comments', id, obj).catch(() => { comments.delete(id); renderAllReact(); flashNet('送れませんでした'); });
+    return true;
+  }
+
+  function removeComment(id) {
+    if (!window.confirm('このコメントを消しますか？')) return;
+    const keep = comments.get(id);
+    comments.delete(id);
+    renderAllReact();
+    cloud.delDoc('comments', id).catch(() => { if (keep) comments.set(id, keep); renderAllReact(); flashNet('消せませんでした'); });
+  }
+
+  function renderReact(c) {
+    const u = c.uid;
+    let n = 0, mine = false;
+    likes.forEach((l) => { if (l.postUid === u) { n++; if (l.by === uid) mine = true; } });
+    const lb = c.el.querySelector('.like');
+    lb.setAttribute('aria-pressed', String(mine));
+    lb.querySelector('.n').textContent = n ? ` ${n}` : '';
+    const list = [...comments.entries()].filter(([, x]) => x.postUid === u).sort((a, b) => a[1].at - b[1].at);
+    c.el.querySelector('.cc').textContent = list.length ? `コメント ${list.length}` : '';
+    const shown = c.all || list.length <= 3 ? list : list.slice(-3);
+    const ul = c.el.querySelector('.cm');
+    ul.innerHTML = '';
+    shown.forEach(([id, x]) => {
+      const li = document.createElement('li');
+      const nm = document.createElement('b'); nm.textContent = x.name || '名前なし';
+      const tx = document.createElement('span'); tx.textContent = x.text;
+      const tm = document.createElement('time'); tm.textContent = whenText(x.at);
+      li.append(nm, tx, tm);
+      if (x.by === uid) {
+        const rm = document.createElement('button');
+        rm.type = 'button'; rm.className = 'rm'; rm.textContent = '消す';
+        rm.addEventListener('click', () => removeComment(id));
+        li.appendChild(rm);
+      }
+      ul.appendChild(li);
+    });
+    const more = c.el.querySelector('.more');
+    more.hidden = list.length <= 3;
+    more.textContent = c.all ? '閉じる' : `すべて見る（${list.length}）`;
+  }
+  const renderAllReact = () => cards.forEach(renderReact);
+
   function renderNet() {
     const t = { idle: '', connecting: '共有につなぎ中', on: '', err: '共有につながっていません。録音はこの端末に残ります' }[cloudState];
     netEl.textContent = t || '';
@@ -757,6 +852,7 @@
       const sig = list.map((m) => `${m.id}.${m.at}.${m.lat}.${m.lng}.${m.name}.${m.lowcut ? 1 : 0}`).join('|');
       if (sig !== c.sig) { c.sig = sig; fillCard(c, list); }
       if (feedEl.children[idx] !== c.el) feedEl.insertBefore(c.el, feedEl.children[idx] || null);
+      renderReact(c);
     });
     // 円の見た目も合わせる
     for (let i = 0; i < N; i++) paint(i);
