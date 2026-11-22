@@ -49,7 +49,7 @@ button { font: inherit; color: inherit; }
 .orb .n { font-size: 13px; letter-spacing: 0.2em; }
 .orb .t { font-size: 11px; letter-spacing: 0.1em; font-variant-numeric: tabular-nums; min-height: 1em; opacity: 0.9; }
 
-\.orb[data-state="saved"] .main { padding-bottom: 70px; }
+.orb[data-state="saved"] .main { padding-bottom: 70px; }
 .orb .foot { position: absolute; left: 0; right: 0; bottom: 25%; display: flex; justify-content: center; gap: 6px; }
 .orb .redo {
   position: static;
@@ -224,7 +224,7 @@ input[type="range"] { touch-action: pan-y; }
 .msg.ok { color: var(--mute); }
 
 /* ---------- コメント（控えめ） ---------- */
-.act { margin: 12px 0 0; }
+.act { display: flex; align-items: center; gap: 14px; margin: 12px 0 0; }
 .act button { display: inline-flex; align-items: center; gap: 6px; background: none; border: 0; padding: 4px 2px; cursor: pointer; color: var(--mute); transition: color 0.2s; }
 .act button[aria-expanded="true"] { color: var(--ink); }
 .act svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; }
@@ -245,3 +245,18 @@ input[type="range"] { touch-action: pan-y; }
 .cf input::placeholder { color: var(--mute); font-size: 12.5px; letter-spacing: 0.08em; }
 .cf button { background: none; border: 0; font-size: 12px; letter-spacing: 0.14em; color: var(--play); padding: 8px 6px; cursor: pointer; }
 .cf button:disabled { opacity: 0; pointer-events: none; }
+/* ---------- 自分の投稿の整理（控えめ） ---------- */
+.post:not(.own) .ed, .post:not(.own) .dp { display: none; }
+.act .ed, .act .dp { font-size: 11px; letter-spacing: 0.1em; }
+.act .dp { margin-left: auto; display: none; }
+.post.own .act .ed { margin-left: auto; }
+.post.edit .act .dp { display: inline-flex; margin-left: auto; }
+.post.edit .act .ed { margin-left: 0; color: var(--ink); }
+.clip .dx { display: none; }
+.post.edit .clip .dx {
+  display: block; position: absolute; right: 20px; top: 50%; transform: translateY(-50%);
+  background: none; border: 0; padding: 6px 0; font-size: 11px; letter-spacing: 0.1em; color: var(--rec); cursor: pointer;
+}
+.post.edit .clip .tm { visibility: hidden; }
+.post.edit .clip.is-play .dx { color: var(--on); }
+
