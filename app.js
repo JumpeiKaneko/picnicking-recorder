@@ -578,6 +578,31 @@
     removeRemote([idOf(i)]);
   }
 
+  // 聴くタブから、自分の音を1つ消す／投稿をすべて消す
+  async function removeTake(i) {
+    if (rec && rec.i === i) { flashNet('録音中は消せません'); return; }
+    if (!takes[i]) return;
+    if (!window.confirm('この音を消しますか？（共有した分も消えます）')) return;
+    stop(idOf(i));
+    takes[i] = null;
+    try { await dbDel(i); } catch (e) { /* なし */ }
+    paint(i);
+    renderFeed();
+    removeRemote([idOf(i)]);
+  }
+
+  async function removePost() {
+    if (rec) { flashNet('録音中は消せません'); return; }
+    if (!window.confirm('この投稿をすべて消しますか？（共有した分も消えます）')) return;
+    stopAll();
+    const ids = takes.map((_, i) => idOf(i));
+    takes.fill(null);
+    try { await dbClear(); } catch (e) { /* なし */ }
+    for (let i = 0; i < N; i++) paint(i);
+    renderFeed();
+    removeRemote(ids);
+  }
+
   async function toggleLowcut(i) {
     const t = takes[i];
     if (!t) return;
@@ -661,8 +686,8 @@
 
   function newCard(u) {
     const el = document.createElement('article');
-    el.className = 'post';
-    el.innerHTML = '<div class="map"></div><div class="head2"><span class="name"></span><span class="when"></span></div><ul class="clips"></ul><p class="note"></p><div class="act"><button type="button" class="cmt" aria-label="コメント" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.500 11.500c0 4.100-3.800 7.500-8.500 7.500-1.100 0-2.200-.2-3.200-.5L4 20l1.400-3.900c-1.200-1.300-1.900-2.900-1.900-4.600C3.500 7.400 7.300 4 12 4s8.500 3.400 8.500 7.500z"/></svg><b class="cn"></b></button></div><div class="cp" hidden><ul class="cm"></ul><form class="cf" autocomplete="off"><input type="text" maxlength="80" placeholder="コメントを追加" aria-label="コメント"><button type="submit" disabled>投稿</button></form></div>';
+    el.className = u === uid ? 'post own' : 'post';
+    el.innerHTML = '<div class="map"></div><div class="head2"><span class="name"></span><span class="when"></span></div><ul class="clips"></ul><p class="note"></p><div class="act"><button type="button" class="cmt" aria-label="コメント" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.500 11.500c0 4.100-3.800 7.500-8.500 7.500-1.100 0-2.200-.2-3.200-.5L4 20l1.400-3.900c-1.200-1.300-1.900-2.900-1.900-4.600C3.500 7.400 7.300 4 12 4s8.500 3.400 8.500 7.500z"/></svg><b class="cn"></b></button><button type="button" class="dp">投稿を消す</button><button type="button" class="ed" aria-pressed="false">編集</button></div><div class="cp" hidden><ul class="cm"></ul><form class="cf" autocomplete="off"><input type="text" maxlength="80" placeholder="コメントを追加" aria-label="コメント"><button type="submit" disabled>投稿</button></form></div>';
     const c = { uid: u, el, list: [], map: null, layer: null, sig: '' };
     el.querySelector('.cmt').addEventListener('click', () => {
       const cp = el.querySelector('.cp');
@@ -670,6 +695,13 @@
       el.querySelector('.cmt').setAttribute('aria-expanded', String(!cp.hidden));
       if (!cp.hidden) el.querySelector('.cf input').focus();
     });
+    el.querySelector('.ed').addEventListener('click', () => {
+      const on = !el.classList.contains('edit');
+      el.classList.toggle('edit', on);
+      el.querySelector('.ed').textContent = on ? '完了' : '編集';
+      el.querySelector('.ed').setAttribute('aria-pressed', String(on));
+    });
+    el.querySelector('.dp').addEventListener('click', () => removePost());
     el.querySelector('.cf input').addEventListener('input', (e) => { el.querySelector('.cf button').disabled = !e.target.value.trim(); });
     el.querySelector('.cf').addEventListener('submit', (e) => {
       e.preventDefault();
@@ -746,8 +778,10 @@
       const li = document.createElement('li');
       li.className = 'clip';
       li.dataset.pk = m.id;
-      li.innerHTML = `<button type="button" class="pl" aria-label="${m.slot + 1}を再生"><span class="no">${m.slot + 1}</span><span class="wf"><span class="off">${wfSvg(m.peaks)}</span><span class="on">${wfSvg(m.peaks)}</span></span><span class="tm">${fmt(m.dur)}</span></button>`;
+      li.innerHTML = `<button type="button" class="pl" aria-label="${m.slot + 1}を再生"><span class="no">${m.slot + 1}</span><span class="wf"><span class="off">${wfSvg(m.peaks)}</span><span class="on">${wfSvg(m.peaks)}</span></span><span class="tm">${fmt(m.dur)}</span></button>${m.uid === uid ? '<button type="button" class="dx">消す</button>' : ''}`;
       li.querySelector('.pl').addEventListener('click', () => toggle(m.id));
+      const dx = li.querySelector('.dx');
+      if (dx) dx.addEventListener('click', () => removeTake(m.slot));
       ul.appendChild(li);
       if (playing.has(m.id) || loading.has(m.id)) li.classList.add('is-play');
     });
