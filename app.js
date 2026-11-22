@@ -8,7 +8,7 @@
   const LOWCUT_HZ = 120;
   const DB_NAME = 'picnicking-recorder';
   const STORE = 'takes';
-  const K = { pitch: 'picnicking-pitch', fx: 'picnicking-fx', uid: 'picnicking-uid', name: 'picnicking-name', del: 'picnicking-del' };
+  const K = { pitch: 'picnicking-pitch', vol: 'picnicking-vol', fx: 'picnicking-fx', uid: 'picnicking-uid', name: 'picnicking-name', del: 'picnicking-del' };
 
   // 東京藝術大学 取手校地（国土地理院の住所検索 小文間5000 を中心にした範囲）
   const CAMPUS = { lat: 35.8828, lng: 140.1147, dLat: 0.0030, dLng: 0.0037 };
@@ -34,7 +34,7 @@
   const mains = orbs.map((o) => o.querySelector('.main'));
   const redos = orbs.map((o) => o.querySelector('.redo'));
   const lowcuts = orbs.map((o) => o.querySelector('.lowcut'));
-  const msg = $('msg'), head = $('head'), space = $('space'), pitch = $('pitch');
+  const msg = $('msg'), head = $('head'), space = $('space'), pitch = $('pitch'), vol = $('vol');
   const pager = $('pager'), feedEl = $('feed'), emptyEl = $('empty'), netEl = $('net');
   const whoBtn = $('who'), gate = $('gate'), gateForm = $('gateForm'), nameIn = $('nameIn'), gateCancel = $('gateCancel');
 
@@ -282,16 +282,19 @@
     const now = ctx.currentTime;
     chain.dry.gain.setTargetAtTime(1 - 0.5 * s, now, 0.03);
     chain.wet.gain.setTargetAtTime(1.4 * s, now, 0.03);
+    chain.master.gain.setTargetAtTime(Number(vol.value) / 100, now, 0.03);
     // 音程：半音単位。速さも一緒に変わる
     const rate = rateNow();
     playing.forEach((p) => {
       if (p.kind === 'buf') { tickPos(p); p.src.playbackRate.setTargetAtTime(rate, now, 0.02); }
-      else { p.el.preservesPitch = false; p.el.playbackRate = rate; }
+      else { p.el.preservesPitch = false; p.el.playbackRate = rate; p.el.volume = Math.min(1, Number(vol.value) / 100); }
     });
   }
   const rateNow = () => Math.pow(2, Number(pitch.value) / 12);
   const tickPos = (p) => { const t = ctx.currentTime; p.pos += (t - p.last) * p.rate; p.last = t; p.rate = rateNow(); };
   space.addEventListener('input', () => { applyFx(); ls.set(K.fx, space.value); });
+  vol.addEventListener('input', () => { applyFx(); ls.set(K.vol, vol.value); });
+  vol.addEventListener('dblclick', () => { vol.value = 100; applyFx(); ls.set(K.vol, '100'); });
   pitch.addEventListener('input', () => { applyFx(); ls.set(K.pitch, pitch.value); });
   pitch.addEventListener('dblclick', () => { pitch.value = 0; applyFx(); ls.set(K.pitch, '0'); });
 
@@ -348,6 +351,7 @@
     el.playsInline = true;
     el.preservesPitch = false;
     el.playbackRate = rateNow();
+    el.volume = Math.min(1, Number(vol.value) / 100);
     const p = { kind: 'el', el, url, dur };
     const done = () => {
       if (playing.get(id) !== p) return;
@@ -941,6 +945,7 @@
   async function init() {
     const fx = ls.get(K.fx); if (fx != null) space.value = fx;
     const p1 = ls.get(K.pitch); if (p1 != null) pitch.value = p1;
+    const v1 = ls.get(K.vol); if (v1 != null) vol.value = v1;
     whoBtn.textContent = myName;
     if (!myName) openGate(false);
 
